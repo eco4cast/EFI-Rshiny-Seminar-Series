@@ -1,0 +1,339 @@
+---
+title: "The need for speed"
+subtitle: "Improving Speed of Shiny Apps by Pre-Computing Models"
+author: "Ben Toh"
+institute: "Northwestern University"
+date: "2021/08/31"
+output:
+  xaringan::moon_reader:
+    lib_dir: libs
+    nature:
+      highlightStyle: github
+      highlightLines: true
+      countIncrementalSlides: false
+---
+
+class: center, middle
+
+### You can access this slide through https://bit.ly/shiny831
+
+### You can download [R Script 1](demo1.R), [R Script 2](demo2.R) and [R Script 3](demo3.R)... through this slide 😅
+
+---
+
+class: inverse, center, middle
+
+# Travel time to health facilities and malaria
+
+http://bit.ly/ben-hf-app
+
+---
+
+class: inverse, center, middle
+
+# The need for speed
+
+---
+
+# Efficient coding
+
+.pull-left[
+
+- [Efficient R programming (Gillespie & Lovelace)](https://csgillespie.github.io/efficientR/)
+
+- Vectorization over loop
+
+- Many native functions are already optimized
+
+- Use profiler to gain insight
+
+- `tidyverse` and `data.table` are your data carpentry friends
+
+]
+
+.pull-right[
+
+```{r echo=FALSE, fig.align='center'}
+knitr::include_graphics("https://csgillespie.github.io/efficientR/figures/f0_web.png")
+```
+
+]
+
+---
+
+# Demo 1
+
+Calculating moving average
+
+- The `for()` loop way vs the `stats::filter()`
+
+Download R script [here](demo1.R).
+
+---
+
+# Demo 2
+
+Sometimes we rely on functions developed by someone else that does not support vectorisation.
+
+For example:
+
+- I want to convert malaria parasite prevalence from children 0 to 5 years old to 2 to 9 years old so that I can calculate expected incidence based on some equation fitted by someone.
+
+- `ageStand` [package](https://github.com/SEEG-Oxford/ageStand) by Smith et al. (2007)
+
+Download R script [here](demo2.R).
+
+---
+
+# Demo 3
+
+For some applications in which reading in large tables and data manipulations are necessary, `tidyverse` and `data.table` provide superior efficiency vs base R.
+
+Download R script [here](demo3.R).
+
+---
+
+# Pre-computing models and results
+
+- Look back at Demo 2!
+
+- Write out your workflow
+
+- Analyze which part of your work flow can be stored or pre-calculated
+
+- Budget your time
+
+---
+
+# Health facilities app
+
+1. Load data (Negligible 🎈, ~0s)
+
+2. Fit GAM model (Fast 🚀, <2s)
+
+3. Ask user for new coordinates
+
+4. Calculate new travel time based on new coordinates (Hmmm...🤔)
+
+5. Produce new prediction using GAM (Fast 🚀, <1s)
+
+6. Produce visualization (🤷)
+
+---
+
+# Health facilities app
+
+1. ~~Load data~~
+
+2. ~~Fit GAM model~~ Pop pre-fitted GAM (Negligible 🎈, ~0s)
+
+3. Ask user for new coordinates
+
+4. Calculate new travel time based on new coordinates (Luckily this is fast!)
+
+5. Produce new prediction using GAM (Fast 🚀, <1s)
+
+6. Produce visualization (🤷)
+
+---
+
+# Example of storing model
+
+```{r}
+library(mgcv)
+
+set.seed(1314)
+dat <- gamSim(2, 5000, scale=.5)$data
+mod <- gam(y ~ s(x, z), data = dat)
+```
+
+---
+
+# Example of storing model
+
+```{r error=T}
+mod
+
+save("mod", file = "gam_mod.rda")
+rm(mod)
+mod
+```
+
+---
+
+# Example of storing model
+
+```{r}
+load("gam_mod.rda")
+mod
+```
+
+---
+
+# Optimization in HF app
+
+1. Pop pre-fitted GAM
+
+2. How many HF to add?
+
+3. Spatial optimization using Genetic Algorithm (VERY long time...😴)
+
+4. Calculate new travel time based on coordinates (Fast enough...)
+
+4. Produce new prediction using GAM (Fast 🚀)
+
+5. Put `n` new optimized spots and corresponding results on the map
+
+---
+
+# Optimization in HF app
+
+1. Pop pre-fitted GAM
+
+2. How many HF to add?
+
+3. ~~Spatial optimization using Genetic Algorithm~~ Read pre-optimized coordinates from CSV (Negligible 🎈)
+
+4. Calculate new travel time based on coordinates (Fast enough...)
+
+4. Produce new prediction using GAM (Fast 🚀)
+
+5. Put `n` new optimized spots and corresponding results on the map
+
+---
+
+# Aedes mosquitoes abundance in Florida
+
+Sometimes, prediction from model isn't that simple... and fast...
+
+```{r echo=FALSE, fig.align='center'}
+knitr::include_graphics("../assets/img/Yang2018.png")
+```
+
+GLMM: Zero-inflated Negative Binomial model with Site and County-level random effects
+
+---
+
+# Aedes mosquitoes abundance in Florida
+
+Fit using `glmmTMB` package; `predict.glmmTMB()` takes extremely long time (~ 1 hour).
+
+"Model" is essentially a bunch of estimated parameters.
+
+--
+
+1. Pop pre-fitted GLMM
+
+2. Ask users for input
+
+3. ~~Use `predict.glmmTMB()` to obtain predicted values (😴)~~ Pull the parameters out from GLMM object and calculate prediction ourselves using Monte Carlo (Fast 🚀).
+
+4. Display predicted mean and CI
+
+---
+
+# Final random tips
+
+- `sf` is generally faster than `sp` but sometimes `sp` works better together with `raster`
+
+- High quality of shape files can take MUCH longer time to render in plots and/or leaflet. Consider "downgrading" it using, [for example](https://gis.stackexchange.com/questions/71094/reduce-the-resolution-of-a-shapefile-in-r-or-qgis-if-necessary), `gSimplify()` from `rgeos` package.
+
+
+- Shock proof your code: Use `dplyr::filter()` and `dplyr::select()` instead of `filter()` and `select()`.
+
+---
+
+class: center, middle
+
+# Thank you! 🙏
+
+Questions, comments, suggestions?
+
+Email: bentoh at northwestern dot edu
+
+Twitter: @kokbent
+
+Website: [bentoh.my](bentoh.my)
+
+---
+
+class: center, middle, inverse
+
+# Hidden stash 👀👀👀
+
+---
+
+
+class: inverse, center, middle
+
+# Continual updates of models and results
+For free, please 🥺
+
+---
+
+# COVID-19 Dashboard for Florida
+
+"Nowcasting" of death by day of death
+
+
+See the Shiny app [here](http://flcovis19.herokuapp.com/)
+
+
+NOTE: This app is no longer in development since Sep 2020. The FL state data stream that powers this tool is no longer updated since June 2021.
+
+--
+
+The code that pulls and analyzes the data on daily basis no longer works because of change in data format since Apr 2021.
+
+---
+
+# COVID-19 Dashboard for Florida
+
+On local computer
+
+1. Scheduled to run script daily at 5pm
+
+2. Pull data from state (100s MB)
+
+3. Run model (Forever...)
+
+4. Store results onto CSV
+
+5. Push CSV to github
+
+On Shiny app
+
+1. Pull CSV from github
+
+2. Make plots and display
+
+---
+
+# EFI Explorer
+
+https://efi-members.herokuapp.com/
+
+
+Want: A Shiny app that automatically *pulls a table of members*, *find the coordinates*, create a map using `leaflet` for display.
+
+
+Problem: Geolocating via Google is not free, also want to avoid any authentication on our side.
+
+---
+
+# EFI Explorer
+
+- Use Google Sheet to store/edit table
+
+```{r echo=FALSE, out.width = "100px", fig.align='center'}
+knitr::include_graphics("../assets/img/GoogleSheet.png")
+```
+
+- Use Google Apps Script to geolocate (Free!)
+
+```{r echo=FALSE, out.width = "100px", fig.align='center'}
+knitr::include_graphics("../assets/img/GoogleAppsScript.png")
+```
+
+- Ask Google to schedule the script on daily/weekly basis (Also free!)
+
